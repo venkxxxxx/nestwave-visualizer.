@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NestWave — Music Visualizer</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0b12;--panel:#151521;--accent:#8b5cf6;--text:#f5f5f7;--muted:#aaa8bd}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#090910,#171027);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:850px;margin:auto;padding:16px}.brand{display:flex;align-items:center;gap:10px;margin:4px 0 16px}.mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#a78bfa,#ec4899);display:grid;place-items:center;font-weight:900;color:white;font-size:20px}.brand h1{font-size:21px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.preview{position:relative;width:100%;aspect-ratio:16/9;background:#090912;border:1px solid #343047;border-radius:18px;overflow:hidden;box-shadow:0 12px 35px #0005}
+#canvas{width:100%;height:100%;display:block}.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;padding:20px;text-shadow:0 2px 10px #000}
+#introTitle{font-size:clamp(22px,5vw,42px);font-weight:800;letter-spacing:.12em}#introSub{font-size:clamp(11px,2.4vw,16px);letter-spacing:.2em;margin-top:8px;color:#e7ddff}
+.panel{background:#151521;border:1px solid #2d2b3d;border-radius:16px;padding:14px;margin-top:14px}.panel h2{font-size:15px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{min-width:0}.field.full{grid-column:1/-1}label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}input[type=file],input[type=text],select{width:100%;min-height:44px;padding:10px;background:#0d0d16;color:#fff;border:1px solid #39364c;border-radius:10px;font:inherit}input[type=file]{font-size:14px}input[type=range]{width:100%}.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}button{border:0;border-radius:11px;padding:12px 8px;font-weight:750;font-size:14px;background:#29263a;color:#fff}button.primary{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}button.stop{background:#8f263c}button:disabled{opacity:.45}#status{font-size:13px;line-height:1.5;color:#d9d3ef;margin-top:10px;white-space:pre-wrap}.hint{font-size:12px;color:var(--muted);line-height:1.5;margin:10px 0 0}.meter{height:5px;background:#29263a;border-radius:9px;overflow:hidden;margin-top:10px}.meter span{display:block;height:100%;width:0;background:linear-gradient(90deg,#8b5cf6,#ec4899)}audio{width:100%;margin-top:10px}
+@media(max-width:520px){main{padding:10px}.grid{grid-template-columns:1fr}.field.full{grid-column:auto}.btns{grid-template-columns:1fr 1fr 1fr}button{font-size:12px;padding:12px 4px}.panel{padding:12px}}
+</style>
+</head>
+<body>
+<main>
+  <header class="brand"><div class="mark">N</div><div><h1>NestWave Visualizer</h1><p>Browser-only • MediaRecorder • No FFmpeg</p></div></header>
+  <div class="preview">
+    <canvas id="canvas" width="1280" height="720"></canvas>
+    <div class="overlay"><div id="introTitle">NESTWAVE</div><div id="introSub">MUSIC • EMOTION • MEMORIES</div></div>
+  </div>
+  <section class="panel">
+    <h2>1. Choose your files</h2>
+    <div class="grid">
+      <div class="field full"><label for="song">Song / audio file</label><input id="song" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.aiff,.aif,.caf,.flac,.ogg,.opus"></div>
+      <div class="field"><label for="background">Background image (optional)</label><input id="background" type="file" accept="image/*"></div>
+      <div class="field"><label for="logo">Logo image (optional)</label><input id="logo" type="file" accept="image/*"></div>
+      <div class="field full"><label for="introFile">Intro video (optional — MP4/WebM)</label><input id="introFile" type="file" accept="video/mp4,video/webm,video/*"><p class="hint">If selected, this video plays first in the export, followed by your music visualizer.</p></div>
+      <div class="field full"><label for="title">Intro title</label><input id="title" type="text" value="NESTWAVE"></div>
+      <div class="field full"><label for="subtitle">Subtitle</label><input id="subtitle" type="text" value="MUSIC • EMOTION • MEMORIES"></div>
+    </div>
+    <audio id="audio" controls preload="metadata"></audio>
+  </section>
+  <section class="panel">
+    <h2>2. Visualizer settings</h2>
+    <div class="grid">
+      <div class="field"><label for="style">Visualizer style</label><select id="style"><option value="bars">Spectrum bars</option><option value="wave">Waveform</option><option value="circle">Circular spectrum</option></select></div>
+      <div class="field"><label for="quality">Export quality</label><select id="quality"><option value="720">720p • smoother on phones</option><option value="1080">1080p • higher load</option></select></div>
+      <div class="field"><label for="intro">Intro duration</label><select id="intro"><option value="7">7 seconds</option><option value="0">No intro</option></select></div>
+      <div class="field"><label for="volume">Playback volume</label><input id="volume" type="range" min="0" max="1" step=".05" value=".85"></div>
+      <div class="field"><label for="react">Background music reaction</label><input id="react" type="range" min="0" max="100" step="5" value="65"><div class="hint">0 = still image · 100 = strong zoom/pulse</div></div>
+      <div class="field"><label for="particles">White floating particles</label><select id="particles"><option value="0">Off</option><option value="45">Light</option><option value="85">Dreamy</option><option value="140" selected>Heavy</option></select><div class="hint">Particles drift upward and brighten with the beat.</div></div>
+    </div>
+    <div class="btns">
+      <button id="play" class="primary">▶ Play</button>
+      <button id="pause">Ⅱ Pause</button>
+      <button id="restart">↻ Restart</button>
+    </div>
+    <div class="btns">
+      <button id="record" class="primary">● Start export</button>
+      <button id="stop" class="stop" disabled>■ Stop & save</button>
+      <button id="cancel" disabled>Cancel</button>
+    </div>
+    <div class="meter"><span id="meter"></span></div>
+    <div id="status">Choose an audio file and optional background. The background zoom, glow and white floating particles respond to detected audio energy. Use Heavy for a stronger effect; keep the song playing to see the reaction.</div>
+    <p class="hint">For the best result, keep Chrome open and the screen awake. Android may pause animation or recording when you switch apps or lock the screen; this page cannot guarantee background or screen-off recording.</p>
+  </section>
+</main>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const canvas=$('canvas'), ctx=canvas.getContext('2d',{alpha:false});
+const audio=$('audio');
+let audioCtx=null, analyser=null, sourceNode=null, audioDest=null, canvasStream=null, recorder=null, chunks=[];
+let bgImg=null, logoImg=null, songUrl=null, introUrl=null, introVideo=null, raf=0, recording=false, cancelRecording=false, startStamp=0, recordedBlob=null, introEndedAt=0;
+let lastFrame=0, hiddenAt=0, smoothed=new Float32Array(96);
+let reactiveEnergy=0, reactiveBass=0, reactivePeak=0;
+let particles=[];
+function seedParticles(count){
+  particles=[];
+  for(let i=0;i<count;i++)particles.push({
+    x:Math.random(), y:Math.random(), r:.8+Math.random()*2.4,
+    speed:.00012+Math.random()*.00034, drift:(Math.random()-.5)*.00022,
+    phase:Math.random()*Math.PI*2, alpha:.25+Math.random()*.6
+  });
+}
+seedParticles(85);
+const status = msg => $('status').textContent=msg;
+const fitCanvas=()=>{ const q=$('quality').value; canvas.width=q==='1080'?1920:1280; canvas.height=q==='1080'?1080:720; };
+function loadImage(file, cb){if(!file){cb(null);return;}const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{cb(im);URL.revokeObjectURL(u)};im.onerror=()=>{cb(null);URL.revokeObjectURL(u)};im.src=u;}
+$('song').addEventListener('change',e=>{
+ const f=e.target.files && e.target.files[0];
+ if(!f){status('No song selected. On iPad, tap Choose File and select an audio file from Files > Browse.');return;}
+ if(!(/^(audio\/|video\/)/i.test(f.type) || /\.(mp3|m4a|aac|wav|aiff|aif|caf|flac|ogg|opus|mp4)$/i.test(f.name))){
+   status('That file does not look like a supported audio file. Try MP3 or M4A.');return;
+ }
+ if(songUrl)URL.revokeObjectURL(songUrl);
+ songUrl=URL.createObjectURL(f);
+ audio.pause();audio.src='';audio.src=songUrl;audio.load();
+ audio.onloadedmetadata=()=>{audio.volume=Number($('volume').value);status('Song loaded: '+f.name+'\nDuration: '+(Number.isFinite(audio.duration)?Math.floor(audio.duration/60)+':'+String(Math.floor(audio.duration%60)).padStart(2,'0'):'unknown')+'\nTap Play, then Start export.');};
+ audio.onerror=()=>status('The file was selected, but iPad Chrome could not decode it. Try an MP3 or M4A audio file saved in Files on your iPad.');
+ status('Loading song: '+f.name+'…');
+});
+$('background').addEventListener('change',e=>loadImage(e.target.files[0],im=>{bgImg=im;drawFrame();}));
+$('logo').addEventListener('change',e=>loadImage(e.target.files[0],im=>{logoImg=im;drawFrame();}));
+$('introFile').addEventListener('change',e=>{
+ const f=e.target.files[0];
+ if(introUrl)URL.revokeObjectURL(introUrl);
+ introUrl=null;introVideo=null;
+ if(!f){drawFrame();return;}
+ introUrl=URL.createObjectURL(f);
+ introVideo=document.createElement('video');
+ introVideo.src=introUrl;introVideo.muted=true;introVideo.playsInline=true;introVideo.preload='auto';
+ introVideo.addEventListener('loadedmetadata',()=>status('Intro video loaded ('+introVideo.duration.toFixed(1)+' sec). It will be included before the visualizer if this browser can play and capture it.'));
+ introVideo.addEventListener('error',()=>status('Could not load that intro video. Try an MP4 or WebM file.'));
+});
+$('title').addEventListener('input',()=>{$('introTitle').textContent=$('title').value||'NESTWAVE';});
+$('subtitle').addEventListener('input',()=>{$('introSub').textContent=$('subtitle').value;});
+$('volume').addEventListener('input',()=>{audio.volume=Number($('volume').value);});
+function setupAudio(){
+ if(audioCtx)return;
+ audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+ analyser=audioCtx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=.78;
+ sourceNode=audioCtx.createMediaElementSource(audio);
+ audioDest=audioCtx.createMediaStreamDestination();
+ sourceNode.connect(analyser); analyser.connect(audioCtx.destination); analyser.connect(audioDest);
+}
+function drawFloatingParticles(now, W, H, intensity){
+ const amount=Number($('particles')?.value ?? 85);
+ if(amount===0)return;
+ if(particles.length!==amount)seedParticles(amount);
+ const beat=intensity||0;
+ ctx.save();ctx.globalCompositeOperation='screen';
+ for(const p of particles){
+   p.y-=p.speed*(1+beat*6.0);
+   p.x+=p.drift+Math.sin(now*.00045+p.phase)*(.00007+beat*.00018);
+   if(p.y<-.03){p.y=1.03;p.x=Math.random();}
+   if(p.x<-.03)p.x=1.03;if(p.x>1.03)p.x=-.03;
+   const twinkle=.55+.45*Math.sin(now*.003+p.phase);
+   const radius=p.r*(1+beat*2.0);
+   ctx.beginPath();ctx.arc(p.x*W,p.y*H,radius,0,Math.PI*2);
+   ctx.fillStyle=`rgba(255,255,255,${Math.min(1,p.alpha*twinkle*(.35+beat*2.2))})`;
+   ctx.shadowColor='#ffffff';ctx.shadowBlur=2+beat*18;ctx.fill();
+   if(beat>.22 && p.r>1.8){
+     ctx.beginPath();ctx.moveTo(p.x*W-radius*2.8,p.y*H);ctx.lineTo(p.x*W+radius*2.8,p.y*H);
+     ctx.moveTo(p.x*W,p.y*H-radius*2.8);ctx.lineTo(p.x*W,p.y*H+radius*2.8);
+     ctx.strokeStyle=`rgba(255,255,255,${Math.min(.8,beat*.65)})`;ctx.lineWidth=1;ctx.stroke();
+   }
+ }
+ ctx.restore();
+}
+function drawFrame(now=performance.now()){
+ raf=requestAnimationFrame(drawFrame);
+ // Keep visualizer rendering independent of audio time; cap work to ~30 fps for mobile performance.
+ if(now-lastFrame<33)return; lastFrame=now;
+ const W=canvas.width,H=canvas.height;
+ ctx.fillStyle='#080812';ctx.fillRect(0,0,W,H);
+ let bass=0, peak=0, energy=0;
+ if(analyser && audio && !audio.paused){
+   const bins=new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(bins);
+   const end=Math.min(64,bins.length);
+   let low=0, mid=0, high=0, lowN=0, midN=0, highN=0;
+   for(let i=1;i<end;i++){
+     const v=bins[i]/255;
+     energy+=v;
+     if(i<12){low+=v;lowN++;}
+     else if(i<32){mid+=v;midN++;}
+     else {high+=v;highN++;}
+     if(v>peak)peak=v;
+   }
+   energy/=Math.max(1,end-1);
+   bass=0.55*(low/Math.max(1,lowN))+0.30*(mid/Math.max(1,midN))+0.15*(high/Math.max(1,highN));
+   // Raise sensitivity for quiet or compressed songs and smooth jitter.
+   bass=Math.min(1,Math.pow(bass,0.72)*1.8);
+   energy=Math.min(1,Math.pow(energy,0.72)*1.8);
+ }
+ const targetEnergy=(audio && !audio.paused)?energy:0;
+ const targetBass=(audio && !audio.paused)?bass:0;
+ reactiveEnergy += (targetEnergy-reactiveEnergy)*(targetEnergy>reactiveEnergy?.42:.12);
+ reactiveBass += (targetBass-reactiveBass)*(targetBass>reactiveBass?.48:.10);
+ reactivePeak += (peak-reactivePeak)*(peak>reactivePeak?.55:.10);
+ bass=reactiveBass; energy=reactiveEnergy; peak=reactivePeak;
+ const react=Number($('react')?.value ?? 65)/100;
+ if(bgImg){
+   const scale=Math.max(W/bgImg.width,H/bgImg.height)*(1+react*(0.012+energy*0.10+bass*0.12));
+   const w=bgImg.width*scale,h=bgImg.height*scale;
+   const pulse=react*(0.003+energy*.018+bass*.025)*W;
+   ctx.save();ctx.translate(W/2,H/2);ctx.translate(Math.sin(now*.0008)*pulse,Math.cos(now*.00065)*pulse);ctx.globalAlpha=.48;
+   ctx.drawImage(bgImg,-w/2,-h/2,w,h);ctx.restore();ctx.globalAlpha=1;
+ }
+ const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'rgba(24,12,44,.5)');g.addColorStop(1,'rgba(4,5,18,.78)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ if(bgImg && react>0){const glow=ctx.createRadialGradient(W/2,H*.55,0,W/2,H*.55,W*.62);glow.addColorStop(0,`rgba(168,85,247,${Math.min(.42, (energy*.24+bass*.20)*react)})`);glow.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);}
+ drawFloatingParticles(now,W,H,Math.min(1,reactiveEnergy*.65+reactiveBass*.55));
+ const intro=Number($('intro').value)*1000;
+ const elapsed=recording?performance.now()-startStamp:audio.currentTime*1000;
+ const useUploadedIntro=recording && introVideo && introVideo.readyState>=2 && !introVideo.ended && elapsed < (introVideo.duration*1000);
+ const showingIntro=recording && ((introVideo && introVideo.readyState>=2 && elapsed < introVideo.duration*1000) || (!introVideo && intro>0 && elapsed<intro));
+ const midY=H*.61;
+ if(useUploadedIntro){
+   try{
+     const vw=introVideo.videoWidth||W,vh=introVideo.videoHeight||H;
+     const scale=Math.max(W/vw,H/vh),w=vw*scale,h=vh*scale;
+     ctx.drawImage(introVideo,(W-w)/2,(H-h)/2,w,h);
+     const shade=ctx.createLinearGradient(0,0,0,H);shade.addColorStop(0,'rgba(0,0,0,.08)');shade.addColorStop(1,'rgba(0,0,0,.30)');ctx.fillStyle=shade;ctx.fillRect(0,0,W,H);
+   }catch(e){}
+ }
+ if(!showingIntro){
+   let data=new Uint8Array(analyser?analyser.frequencyBinCount:1024);
+   if(analyser){if($('style').value==='wave')analyser.getByteTimeDomainData(data);else analyser.getByteFrequencyData(data);}
+   const style=$('style').value;
+   if(style==='wave'){
+     ctx.beginPath();ctx.lineWidth=Math.max(2,W/640);ctx.strokeStyle='#c4a7ff';ctx.shadowBlur=18;ctx.shadowColor='#8b5cf6';
+     for(let i=0;i<data.length;i+=2){const x=i/(data.length-1)*W,y=H*.60+(data[i]-128)*H*.0035;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.shadowBlur=0;
+   }else if(style==='circle'){
+     const cx=W/2,cy=H*.60,r=Math.min(W,H)*.16,n=100;
+     for(let i=0;i<n;i++){const v=data[Math.floor(i*data.length/n)]/255;const a=i/n*Math.PI*2-Math.PI/2;const r1=r,r2=r+v*H*.13;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);ctx.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);ctx.strokeStyle=`hsl(${260+i/n*75} 95% ${60+v*20}%)`;ctx.lineWidth=Math.max(2,W/320);ctx.stroke();}
+   }else{
+     const n=96, gap=W*.0035, bw=(W*.82)/n-gap;
+     for(let i=0;i<n;i++){const idx=Math.floor(Math.pow(i/n,1.7)*data.length*.8);const v=data[idx]/255;smoothed[i]=smoothed[i]*.72+v*.28;const bh=Math.max(4,smoothed[i]*H*.30);const x=W*.09+i*(bw+gap),y=midY-bh/2;const grad=ctx.createLinearGradient(0,y,0,y+bh);grad.addColorStop(0,'#f0abfc');grad.addColorStop(1,'#7c3aed');ctx.fillStyle=grad;ctx.fillRect(x,y,bw,bh);}
+   }
+   // track title
+   ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.92)';ctx.font=`700 ${Math.round(W*.026)}px system-ui`;ctx.fillText(($('title').value||'NESTWAVE').slice(0,55),W/2,H*.28);
+   ctx.fillStyle='rgba(235,225,255,.82)';ctx.font=`${Math.round(W*.013)}px system-ui`;ctx.fillText($('subtitle').value.slice(0,80),W/2,H*.33);
+ } else {
+   ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font=`800 ${Math.round(W*.055)}px system-ui`;ctx.fillText(($('title').value||'NESTWAVE').slice(0,35),W/2,H*.47);
+   ctx.fillStyle='#e9ddff';ctx.font=`${Math.round(W*.021)}px system-ui`;ctx.fillText($('subtitle').value.slice(0,60),W/2,H*.54);
+   ctx.fillStyle='rgba(255,255,255,.75)';ctx.font=`${Math.round(W*.014)}px system-ui`;ctx.fillText('PRESENTING',W/2,H*.62);
+ }
+ if(logoImg){const maxW=W*.11,maxH=H*.14,s=Math.min(maxW/logoImg.width,maxH/logoImg.height);ctx.drawImage(logoImg,W*.05,H*.07,logoImg.width*s,logoImg.height*s);}
+ // progress and timeline
+ if(recording){const duration=audio.duration||0,p=duration?Math.min(1,audio.currentTime/duration):0;ctx.fillStyle='rgba(255,255,255,.20)';ctx.fillRect(W*.08,H*.91,W*.84,H*.006);ctx.fillStyle='#c084fc';ctx.fillRect(W*.08,H*.91,W*.84*p,H*.006);$('meter').style.width=(p*100)+'%';}
+}
+function supportedMime(){for(const t of ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']){if(window.MediaRecorder&&MediaRecorder.isTypeSupported(t))return t;}return '';}
+async function startExport(){
+ if(!audio.src){status('Please choose a song first.');return;}
+ if(!window.MediaRecorder||!canvas.captureStream){status('This Chrome browser does not support MediaRecorder canvas export.');return;}
+ try{
+   setupAudio();await audioCtx.resume();fitCanvas();
+   chunks=[];cancelRecording=false;recording=true;startStamp=performance.now();$('meter').style.width='0%';
+   if(introVideo){
+     audio.pause();audio.currentTime=0;
+     introVideo.currentTime=0;
+     introVideo.onended=async()=>{try{introVideo.pause();if(recording&&audio.paused){await audioCtx.resume();await audio.play();}}catch(e){status('Intro ended, but song playback could not start: '+e.message);}};
+     try{await introVideo.play();}catch(e){status('Intro video could not autoplay; starting song without the uploaded intro. '+e.message);try{await audio.play();}catch{}}
+   } else if(audio.paused){audio.currentTime=0;await audio.play();}
+   canvasStream=canvas.captureStream(30);
+   const tracks=[...canvasStream.getVideoTracks(),...audioDest.stream.getAudioTracks()];
+   const combined=new MediaStream(tracks);
+   const mime=supportedMime();recorder=new MediaRecorder(combined,mime?{mimeType:mime,videoBitsPerSecond:$('quality').value==='1080'?5000000:2500000,audioBitsPerSecond:160000}:undefined);
+   recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+   recorder.onerror=e=>status('Recording error: '+(e.error?.message||'unknown error'));
+   recorder.onstop=()=>{
+     recording=false;try{canvasStream?.getTracks().forEach(t=>t.stop());}catch{}
+     if(cancelRecording){chunks=[];status('Recording cancelled.');return;}
+     recordedBlob=new Blob(chunks,{type:recorder?.mimeType||'video/webm'});
+     if(!recordedBlob.size){status('No video data was captured. Try again and keep Chrome open.');return;}
+     const url=URL.createObjectURL(recordedBlob),a=document.createElement('a');a.href=url;a.download='NestWave-Visualizer.webm';document.body.appendChild(a);a.click();a.remove();
+     status('Export ready: NestWave-Visualizer.webm\nFormat: '+(recordedBlob.type||'video/webm')+'\nIf Android asks, choose Download / Save. Keep Chrome open for best results.');
+     setTimeout(()=>URL.revokeObjectURL(url),60000);
+   };
+   recorder.start(1000);$('record').disabled=true;$('stop').disabled=false;$('cancel').disabled=false;
+   status('Recording… '+(introVideo?'Uploaded intro video will play first.':'Using the selected intro duration.')+' Keep Chrome open for the most reliable result. Switching apps or locking the screen may pause the visualizer.');
+   audio.onended=()=>{if(recording&&recorder?.state==='recording')stopExport();};
+ }catch(err){recording=false;status('Could not start export: '+err.message+'\nTap Play first, then try Start export again.');}
+}
+function stopExport(){if(recorder&&recorder.state!=='inactive'){try{recorder.requestData();}catch{}recorder.stop();} $('record').disabled=false;$('stop').disabled=true;$('cancel').disabled=true;}
+$('play').onclick=async()=>{try{setupAudio();await audioCtx.resume();await audio.play();status(recording?'Recording…':'Playing song. Tap Start export when ready.');}catch(e){status('Choose a song first, then tap Play. '+e.message)}};
+$('pause').onclick=()=>{if(!audio.paused){audio.pause();status(recording?'Song paused. Recording continues, but the visualizer may appear quiet.':'Paused.');}};
+$('restart').onclick=async()=>{if(!audio.src){status('Choose a song first.');return;}audio.currentTime=0;try{setupAudio();await audioCtx.resume();await audio.play();}catch{}};
+$('record').onclick=startExport;
+$('stop').onclick=stopExport;
+$('cancel').onclick=()=>{cancelRecording=true;if(recorder&&recorder.state!=='inactive')recorder.stop();try{introVideo?.pause();if(introVideo)introVideo.currentTime=0;}catch{}$('record').disabled=false;$('stop').disabled=true;$('cancel').disabled=true;};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&recording){hiddenAt=Date.now();status('Chrome tab is in the background. Android may throttle the visualizer or recorder; this page cannot prevent that.');}else if(recording&&hiddenAt){status('Back in Chrome. Check the recording before relying on the exported file.');hiddenAt=0;}});
+window.addEventListener('pagehide',()=>{if(recording)status('Page is being suspended or closed. Recording may be incomplete.');});
+audio.addEventListener('loadedmetadata',()=>{audio.volume=Number($('volume').value);});
+fitCanvas();drawFrame();
+})();
+</script>
+</body>
+</html>
